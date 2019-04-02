@@ -17,23 +17,22 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {SafeAny} from "safe-any"
-
-import {Identifier} from "./identifier"
-import {IdentifierInterval} from "./identifierinterval"
+import {isObject} from "./data-validation"
+import { Identifier } from "./identifier"
+import { IdentifierInterval } from "./identifierinterval"
 import * as IDFactory from "./idfactory"
-import {isInt32} from "./int32"
+import { isInt32 } from "./int32"
 import {
     compareBase,
     IdentifierIteratorResults,
 } from "./iteratorhelperidentifier"
-import {LogootSBlock} from "./logootsblock"
-import {LogootSDel} from "./operations/delete/logootsdel"
-import {TextDelete} from "./operations/delete/textdelete"
-import {LogootSAdd} from "./operations/insert/logootsadd"
-import {TextInsert} from "./operations/insert/textinsert"
-import {ResponseIntNode} from "./responseintnode"
-import {RopesNodes} from "./ropesnodes"
+import { LogootSBlock } from "./logootsblock"
+import { LogootSDel } from "./operations/delete/logootsdel"
+import { TextDelete } from "./operations/delete/textdelete"
+import { LogootSAdd } from "./operations/insert/logootsadd"
+import { TextInsert } from "./operations/insert/textinsert"
+import { ResponseIntNode } from "./responseintnode"
+import { RopesNodes } from "./ropesnodes"
 import * as TextUtils from "./textutils"
 
 function leftChildOf (aNode: RopesNodes): RopesNodes | null {
@@ -50,19 +49,18 @@ export class LogootSRopes {
         return new LogootSRopes(0, 0)
     }
 
-    static fromPlain (replica: number, clock: number, o: SafeAny<LogootSRopes>): LogootSRopes | null {
+    static fromPlain (replica: number, clock: number, o: unknown): LogootSRopes | null {
         console.assert(isInt32(replica), "replica ∈ int32")
         console.assert(isInt32(clock), "clock ∈ int32")
 
-        if (typeof o === "object" && o !== null) {
-            const str = o.str
-            const plainRoot = o.root
+        if (isObject<LogootSRopes>(o) &&
+            typeof o.str === "string") {
 
-            if (typeof str === "string") {
-                const root: RopesNodes | null = RopesNodes.fromPlain(plainRoot)
-                if (root !== null && str.length === root.sizeNodeAndChildren) {
-                    return new LogootSRopes(replica, clock, root, str)
-                }
+            const root = RopesNodes.fromPlain(o.root)
+            if ((root !== null && o.str.length === root.sizeNodeAndChildren) ||
+                (root === null && o.str.length === 0)) {
+
+                return new LogootSRopes(replica, clock, root, o.str)
             }
         }
         return null
@@ -71,7 +69,7 @@ export class LogootSRopes {
     readonly replicaNumber: number
     clock: number
     root: RopesNodes | null
-    readonly mapBaseToBlock: {[key: string]: LogootSBlock}
+    readonly mapBaseToBlock: { [key: string]: LogootSBlock }
     str: string
 
     constructor (replica = 0, clock = 0, root: RopesNodes | null = null, str = "") {
@@ -83,7 +81,7 @@ export class LogootSRopes {
         this.root = root
         this.str = str
 
-        const baseToBlock: {[key: string]: LogootSBlock} = {}
+        const baseToBlock: { [key: string]: LogootSBlock } = {}
         if (root !== null) {
             console.assert(str.length === root.sizeNodeAndChildren,
                 "str length must match the number of elements in the model")
@@ -99,6 +97,10 @@ export class LogootSRopes {
                 "str must be empty when no root is provided")
         }
         this.mapBaseToBlock = baseToBlock
+    }
+
+    get height (): number {
+        return (this.root) ? this.root.height : 0
     }
 
     getBlock (idInterval: IdentifierInterval): LogootSBlock {
@@ -224,7 +226,7 @@ export class LogootSRopes {
                 // node to insert concat the node
                 if (from.left !== null) {
                     const split = from.getIdBegin().minOffsetAfterPrev(
-                            from.left.getIdEnd(), idi.begin)
+                        from.left.max, idi.begin)
                     const l = str.substr(split - idi.begin, str.length)
                     if (l.length > 0) {
                         from.appendBegin(l.length)
@@ -254,7 +256,7 @@ export class LogootSRopes {
                 // concat at end
                 if (from.right !== null) {
                     const split = from.getIdEnd().maxOffsetBeforeNext(
-                            from.right.getIdBegin(), idi.end)
+                        from.right.min, idi.end)
                     const l = str.substr(0, split + 1 - idi.begin)
                     i = i + from.leftSubtreeSize() + from.length
                     if (l.length > 0) {
@@ -287,7 +289,8 @@ export class LogootSRopes {
             case IdentifierIteratorResults.B1_EQUALS_B2: {
                 con = false
                 break
-            } }
+            }
+            }
         }
         this.balance(path)
         return result
@@ -307,7 +310,7 @@ export class LogootSRopes {
     addBlock (str: string, id: Identifier): TextInsert[] {
         const author = id.replicaNumber
         const idi = new IdentifierInterval(id,
-                id.lastOffset + str.length - 1)
+            id.lastOffset + str.length - 1)
 
         if (this.root === null) {
             const bl = new LogootSBlock(idi, 0)
@@ -370,7 +373,7 @@ export class LogootSRopes {
                 }
             } else { // middle
                 const inPos = this.searchNode(pos) as ResponseIntNode
-                    // TODO: why non-null?
+                // TODO: why non-null?
                 if (inPos.i > 0) { // split
                     const id1 = inPos.node.block.idInterval.getBaseId(inPos.node.actualBegin + inPos.i - 1)
                     const id2 = inPos.node.block.idInterval.getBaseId(inPos.node.actualBegin + inPos.i)
@@ -379,7 +382,7 @@ export class LogootSRopes {
                     path.push(inPos.node.split(inPos.i, newNode))
                 } else {
                     const prev = this.searchNode(pos - 1) as ResponseIntNode
-                        // TODO: why non-null?
+                    // TODO: why non-null?
                     if (inPos.node.isAppendableBefore(this.replicaNumber, l.length)) {
                         // append before
 
@@ -388,7 +391,7 @@ export class LogootSRopes {
 
                         return new LogootSAdd(id5, l)
                     } else if (prev.node.isAppendableAfter(this.replicaNumber, l.length)) {
-                            // append after
+                        // append after
 
                         const id4 = prev.node.appendEnd(l.length)
                         this.ascendentUpdate(prev.path, l.length)
@@ -715,7 +718,7 @@ export class LogootSRopes {
                 }
             }
             return false
-        }  else {
+        } else {
             path.push(node.right)
             this.getXest(leftChildOf, path)
             return true
@@ -732,7 +735,7 @@ export class LogootSRopes {
             const linearRpr = root.toList()
             for (const idi of linearRpr) {
                 result = (result * 17 + idi.digest()) | 0
-                    // Convert to 32bits integer
+                // Convert to 32bits integer
             }
         }
         return result

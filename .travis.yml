@@ -1,14 +1,26 @@
 language: node_js
+cache:
+  directories:
+    - ~/.npm
+notifications:
+  email: false
 node_js:
-- node
-- '7'
-- '6'
-deploy:
-  provider: npm
-  email: nicolasmatthieu57@gmail.com
-  api_key:
-    secure: kwaubG6oOLvWEWNwCAcAjAkUXVDYPoKK5W9fg3yl/5Pz8pDkxV8nmOho6sc2A5QNqfHgj6tEGisENiHWtSqsrJThxvwAMgTV82twzrn3dVZWxo2ZvuIdD9HWimSiDUUtaAWH2NXmgtBPUGIgaFrYxNmm7tFw7TgM6L3Q6eyH6Gk=
-  on:
-    tags: true
-    repo: coast-team/mute-structs
-  skip_cleanup: true
+  - 'node'
+  - '9'
+  - '8'
+script:
+  - npm test
+jobs:
+  include:
+    - stage: release
+      if: tag IS present
+      node_js: 'node'
+      script: npm run build
+      deploy:
+        provider: npm
+        email: nicolasmatthieu57@gmail.com
+        api_key:
+          secure: jbPUO4ggV+A8USN3aqhZ59bjav1UUiCHvLT+B/aj+XnjMv8fAH6XgdF/eb4k/nQOdg9S3VfwHnVv5FKG+6SWufDuwAoGVNiZPcsKFtlPta97YfxgICRmk5DcK4jpqfG0/jmDc1K/W710zKIjxgYHCb1ZukWF4v20DOIz7NL0diM=
+        skip_cleanup: true
+        on:
+          tags: true
